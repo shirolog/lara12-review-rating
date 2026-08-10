@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'view post')
+@section('title', 'View Post')
 
 
 @section('content')
@@ -127,7 +127,7 @@
                                     @csrf
                                     @method('DELETE')
                                     <div class="flex-btn">
-                                        <a href="{{route('user.edit_review', $review->id)}}" class="inline-option-btn">edit review</a>
+                                        <a href="{{route('user.edit_review', ['review' => $review->id, 'page' => $reviews->currentPage()])}}" class="inline-option-btn">edit review</a>
                                         <input type="submit" class="inline-delete-btn" value="delete review" onclick="return confirm('delete this review?');">
                                     </div>   
                                 </form>
@@ -143,7 +143,7 @@
 
     @if($reviews->isNotEmpty())
     <div class="page">
-        {!!$reviews->onEachSide(1)->links()!!}
+        {{ $reviews->onEachSide(1)->links() }}
     </div>
     @endif
 @endsection

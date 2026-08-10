@@ -9,133 +9,103 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use PhpParser\Node\Expr\New_;
 
 class UserController extends Controller
 {
-    
+    //registerページに関する記述
 
-//registerページに関する記述
-
-    public function register(){
-
+    public function register()
+    {
         return view('register');
     }
 
-    public function register_store(Request $request){
-
-        $validator = Validator::make($request->all(),[
-
+    public function register_store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:50',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|confirmed|min:3',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
         ]);
 
-
-        if($request->hasFile('image') && $request->file('image')->getSize() > 2000000) {
-            session()->flash('warning', 'Image size is too large!');
-
-            return redirect()->back();
-        }
-
-    
         $existEmail = User::where('email', $request->input('email'))->exists();
-        if($existEmail){
-            session()->flash('warning', 'Email already token!');
-   
+        if ($existEmail) {
+            session()->flash('warning', 'Email Already Token!');
+
             return redirect()->back();
         }
 
-        if ($request->input('password') !== $request->input('password_confirmation')){
+        if ($request->input('password') !== $request->input('password_confirmation')) {
+            session()->flash('warning', 'Confirm Password Not Matched!');
 
-            session()->flash('warning', 'Confirm password not matched!');
-   
             return redirect()->back();
         }
 
-        
-        if($validator->fails()){
-
+        if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-
-        $user = new User;
+        $user = new User();
 
         $user->name = $request->input('name');
         $user->email = $request->input('email');
         $user->password = Hash::make($request->input('password'));
-        
-    if ($request->hasFile('image')) {
-        $image = $request->file('image');
-        $ext = $image->getClientOriginalExtension();
-        $imageName = time() . '.' . $ext;
-        $image->move(public_path('uploaded_files/'), $imageName);
-        $user->image = $imageName; 
-    }
+
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $ext = $image->getClientOriginalExtension();
+            $imageName = time() . '.' . $ext;
+            $image->move(public_path('uploaded_files/'), $imageName);
+            $user->image = $imageName;
+        }
 
         $user->save();
 
-        session()->flash('success', 'Registered successfully!');
-        
+        session()->flash('success', 'Registered Successfully!');
 
         return redirect()->route('user.login');
     }
 
+    //loginページに関する記述
 
-
-//loginページに関する記述
-
-    public function login(){
-
+    public function login()
+    {
         return view('login');
     }
 
-
-    public function authenticate(Request $request){
-
-        $validator = Validator::make($request->all(),[
-
+    public function authenticate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|min:3',
         ]);
 
-
-        if($validator->fails()){
-
+        if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-        if(Auth::attempt(['email' => $request->input('email'), 'password' => $request->input('password')])){
-
+        if (Auth::attempt(['email' => $request->input('email'), 'password' => $request->input('password')])) {
             return redirect()->route('user.all_posts');
-
-        }else{
-
-            session()->flash('warning', 'Email or password incorrect!');
+        } else {
+            session()->flash('warning', 'Email Or Password Incorrect!');
             return redirect()->back();
-
         }
     }
 
+    //edit_profileページに関する記述
 
+    public function edit_profile(User $user)
+    {
+        if ($user->id !== Auth::id()) {
+            abort(403);
+        }
 
-
-//edit_profileページに関する記述
-
-    public function edit_profile(User $user){
-        
         return view('edit_profile', compact('user'));
     }
 
-
-    public function profile_update(Request $request, User $user){
-
-
-
-        $validator = Validator::make($request->all(),[
-
+    public function profile_update(Request $request, User $user)
+    {
+        $validator = Validator::make($request->all(), [
             'name' => 'required',
             'email' => 'required|unique:users,email,' . $user->id,
             'old_password' => 'nullable',
@@ -144,128 +114,100 @@ class UserController extends Controller
             'image' => 'image|nullable',
         ]);
 
-    
-    
-        $existEmail = User::where('email', $request->input('email'))
-        ->where('id', '!=', $user->id)->exists();
-        if($existEmail){
+        $existEmail = User::where('email', $request->input('email'))->where('id', '!=', $user->id)->exists();
+        if ($existEmail) {
             session()->flash('warning', 'Email already token!');
-   
+
             return redirect()->back();
         }
 
-
-    
-
-        if($validator->fails()){
-            if($validator->errors()->has('new_password')){
-                session()->flash('error', 'Confirm password not matached!');
+        if ($validator->fails()) {
+            if ($validator->errors()->has('new_password')) {
+                session()->flash('error', 'Confirm Password Not Matached!');
             }
-            
+
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-
-        
         if ($request->filled('name')) {
             $user->name = $request->input('name');
         }
 
-        
         if ($request->filled('email')) {
             $user->email = $request->input('email');
         }
 
         if ($request->filled('old_password')) {
             if (!Hash::check($request->input('old_password'), $user->password)) {
-                session()->flash('error', 'Old password does not match.');
+                session()->flash('error', 'Old Password Does Not Match.');
                 return redirect()->back();
             }
             $user->password = Hash::make($request->input('new_password'));
         }
 
+        if ($request->hasFile('image')) {
+            $oldImage = public_path('uploaded_files/' . $user->image);
 
-        
-        if($request->hasFile('image')){
-
-            $oldImage = public_path('uploaded_files/'. $user->image);
-
-            if(is_file($oldImage)){
+            if (is_file($oldImage)) {
                 unlink($oldImage);
             }
 
             $image = $request->file('image');
             $ext = $image->getClientOriginalExtension();
-            $imageName = time().'.'.$ext;
+            $imageName = time() . '.' . $ext;
             $image->move(public_path('uploaded_files/'), $imageName);
             $user->image = $imageName;
         }
         $user->save();
 
-        session()->flash('success', 'Profile updated successfully!');
-       
+        session()->flash('success', 'Profile Updated Successfully!');
+
         return redirect()->back();
     }
 
+    public function profile_img_destroy(Request $request, User $user)
+    {
+        if ($user->image) {
+            $oldImage = public_path('uploaded_files/' . $user->image);
 
-    public function profile_img_destroy(Request $request, User $user){
-
-        if($user->image){
-
-            $oldImage = public_path('uploaded_files/'. $user->image);
-
-                        
-            if(is_file($oldImage)){
+            if (is_file($oldImage)) {
                 unlink($oldImage);
                 $user->image = null;
                 $user->save();
             }
         }
-            
-        session()->flash('success', 'Image deleted successfully!');
+
+        session()->flash('success', 'Image Deleted Successfully!');
 
         return response()->json([
-
             'status' => true,
         ]);
     }
 
+    //all_postsページに関する記述
 
-
-//all_postsページに関する記述
-
-    public function all_posts(){
-        
-        $user = Auth::user();
-
-        
+    public function all_posts()
+    {
         $posts = Post::withCount('reviews')->paginate(6);
 
         return view('all_posts', compact('posts'));
-
     }
 
-        
+    //view_postページに関する記述
 
-//view_postページに関する記述
-
-    public function view_post(Post $post){
-
+    public function view_post(Post $post)
+    {
         //withCount()でreviews_countを取得できる
         $post = Post::withCount('reviews')
-        ->withSum('reviews', 'rating')//withSum()でreviews_sum_ratingを取得できる
-        ->find($post->id);
-        
-        if($post){
-            if($post->reviews_count > 0){
+            ->withSum('reviews', 'rating') //withSum()でreviews_sum_ratingを取得できる
+            ->find($post->id);
 
-                $average = round(($post->reviews_sum_rating / $post->reviews_count), 1);
-
-            }else{
+        if ($post) {
+            if ($post->reviews_count > 0) {
+                $average = round($post->reviews_sum_rating / $post->reviews_count, 1);
+            } else {
                 $average = 0;
             }
-
-   
 
             $rating_1 = $post->reviews()->where('rating', 1)->count();
             $rating_2 = $post->reviews()->where('rating', 2)->count();
@@ -274,90 +216,86 @@ class UserController extends Controller
             $rating_5 = $post->reviews()->where('rating', 5)->count();
         }
 
-        $reviews = $post->reviews()->paginate(10);
+        $reviews = $post->reviews()->paginate(1);
 
-        
         return view('view_post', compact('post', 'average', 'rating_1', 'rating_2', 'rating_3', 'rating_4', 'rating_5', 'reviews'));
     }
 
-    public function view_post_destroy(Review $review){
-        
+    public function view_post_destroy(Review $review)
+    {
+        if ($review->user_id !== Auth::id()) {
+            abort(403);
+        }
+
         $review->delete();
 
-        session()->flash('success', 'Review deleted successfully!');
+        session()->flash('success', 'Review Deleted Successfully!');
 
         return redirect()->back();
     }
 
+    //add_viewページに関する記述
 
-
-
-//add_viewページに関する記述
-
-    public function add_view(Post $post){
-
+    public function add_view(Post $post)
+    {
         return view('add_view', compact('post'));
     }
-    
 
-    public function add_view_store(Request $request){
-
+    public function add_view_store(Request $request)
+    {
         $validator = Validator::make($request->all(), [
-
             'title' => 'required|string|max:50',
             'description' => 'required|string|max:1000',
             'rating' => 'required|numeric|between:1, 5',
         ]);
 
-        if($validator->fails()){
-
+        if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
-
-        $existReview = Review::where('user_id', Auth::user()->id)
-        ->where('post_id', $request->input('post_id'))
-        ->exists();
+        $existReview = Review::where('user_id', Auth::id())->where('post_id', $request->input('post_id'))->exists();
 
         if ($existReview) {
-            session()->flash('error', 'Your review has already been added!');
+            session()->flash('error', 'Your Review Has Already Been Added!');
             return redirect()->back()->withInput();
         }
 
-        $review = new Review;
+        $review = new Review();
 
         $review->post_id = $request->input('post_id');
-        $review->user_id = Auth::user()->id;
+        $review->user_id = Auth::id();
         $review->rating = $request->input('rating');
         $review->title = $request->input('title');
         $review->description = $request->input('description');
         $review->save();
 
-
-        return redirect()->back()->with('success', 'Review added');
+        return redirect()->back()->with('success', 'Review Added!');
     }
 
+    //edit_reviewページに関する記述
 
-
-
-//edit_reviewページに関する記述
-
-    public function edit_review(Review $review){
+    public function edit_review(Review $review)
+    {
+        if ($review->user_id !== Auth::id()) {
+            abort(403);
+        }
 
         return view('edit_review', compact('review'));
     }
 
-    public function edit_review_update(Request $request, Review $review){
+    public function edit_review_update(Request $request, Review $review)
+    {
+        if ($review->user_id !== Auth::id()) {
+            abort(403);
+        }
 
         $validator = Validator::make($request->all(), [
-
             'title' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:1000',
             'rating' => 'nullable|numeric|between:1, 5',
         ]);
 
-        if($validator->fails()){
-
+        if ($validator->fails()) {
             return redirect()->back()->withInput()->withErrors($validator);
         }
 
@@ -366,17 +304,15 @@ class UserController extends Controller
         $review->rating = $request->input('rating');
         $review->save();
 
-        return redirect()->back()->with('success', 'Review updated!');
-
+        return redirect()
+            ->route('user.view_post', ['post' => $review->post_id, 'page' => $request->input('page')])
+            ->with('success', 'Review Updated!');
     }
 
+    //logout処理に関する記述
 
-
-
-//logout処理に関する記述
-
-    public function logout(Request $request){
-
+    public function logout(Request $request)
+    {
         Auth::logout();
 
         $request->session()->invalidate();
@@ -384,5 +320,4 @@ class UserController extends Controller
 
         return redirect()->route('user.login');
     }
-
 }

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'update review')
+@section('title', 'Update Review')
 
 
 @section('content')
@@ -9,6 +9,7 @@
     <!-- account-form section -->
     <section class="account-form">
         <form action="{{route('user.edit_review_update', $review->id)}}" method="post">
+            <input type="hidden" name="page" value="{{ request('page', 1) }}">
             @csrf  
             @method('PUT')
             <h3>edit your review</h3>
@@ -33,7 +34,7 @@
                 <option value="5" {{$review->rating == 5 ? 'selected' : ''}}>5</option>
             </select>
             <input type="submit" value="update review" class="btn">
-            <a href="{{route('user.view_post', $review->post->id)}}" class="option-btn">go back</a>
+            <a href="{{route('user.view_post', ['post'=> $review->post->id, 'page' => request()->page])}}" class="option-btn">go back</a>
         </form>
     </section>
 @endsection
