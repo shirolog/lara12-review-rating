@@ -20,8 +20,11 @@
                 @endif
                 <p>{{ Auth::user()->name }}</p>
                 <a href="{{ route('user.edit_profile', Auth::id()) }}" class="btn">update profile</a>
-                <a href="{{ route('user.logout') }}" class="logout-btn"
-                    onclick="return confirm('logout from this website?')">logout</a>
+                <form action="{{ route('user.logout') }}" method="post">
+                    @csrf
+                    <button type="submit" class="logout-btn"
+                        onclick="return confirm('logout from this website?')">logout</button>
+                </form>
             </div>
         @endauth
     </section>
